@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cavmir"
+version = "0.1.0"
+description = "Concept Activation Vectors in Music Information Retrieval."
+readme = "README.md"
+authors = [
+    { name = "Eylül Bektur", email = "" },
+    { name = "Roman Gebhardt", email = "" },
+    { name = "Arne Kuhle", email = "" }
+]
+license = { file = "LICENSE" }
+dependencies = [
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff"] 
+
+[project.urls]
+Homepage = "https://github.com/WhoCares96/CAV-MIR"
+Repository = "https://github.com/WhoCares96/CAV-MIR"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cavmir"]
