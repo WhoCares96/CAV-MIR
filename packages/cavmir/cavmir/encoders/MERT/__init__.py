@@ -28,6 +28,8 @@ class MERTEncoder(AudioEncoder):
             )  # adapt if we want to test hidden states
 
         last_hidden_state = outputs.last_hidden_state
+
+        # embedding averaged over time
         last_hidden_state_time_avg = last_hidden_state.mean(-2)
 
         return last_hidden_state_time_avg.numpy()

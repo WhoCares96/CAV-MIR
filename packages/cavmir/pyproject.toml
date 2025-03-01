@@ -20,7 +20,8 @@ dependencies = [
     "torchaudio",
     "nnAudio",
     "soundfile",
-    "librosa"
+    "librosa",
+    "webdataset"
 ]
 requires-python = ">=3.9"
 
