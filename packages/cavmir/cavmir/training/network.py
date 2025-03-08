@@ -9,6 +9,7 @@ class SimpleDenseNetwork(torch.nn.Module):
         target_shape: int,
         hidden_layers: list[int] = [],
         dropout_rate: float = 0.0,
+        nonlinear_last_layer: bool = False,
     ):
         """
         Parameters:
@@ -21,6 +22,8 @@ class SimpleDenseNetwork(torch.nn.Module):
             A list of integers defining the number of units in the hidden layers. Can be an empty list.
         dropout_rate: float
             The dropout rate to apply after each layer. Applies at least once if hidden_layers is empty.
+        nonlinear_last_layer: bool
+            Whether to use a nonlinear activation function in the last layer. Defaults to False (linear).
         """
         super(SimpleDenseNetwork, self).__init__()
 
@@ -34,12 +37,16 @@ class SimpleDenseNetwork(torch.nn.Module):
             # Add a fully connected (linear) layer
             layers.append(torch.nn.Linear(layer_widths[i], layer_widths[i + 1]))
 
-            if i < len(layer_widths) - 2:  # Nonlinear activation for but last layer
+            if i < len(layer_widths) - 2:  # Nonlinear activation for all but last layer
                 layers.append(torch.nn.ReLU())
 
                 # Add dropout if specified
                 if dropout_rate > 0.0:
                     layers.append(torch.nn.Dropout(dropout_rate))
+
+        # Add nonlinear activation to the last layer if specified
+        if nonlinear_last_layer:
+            layers.append(torch.nn.ReLU())
 
         # Ensure at least one dropout layer if no hidden layers exist
         if not hidden_layers and dropout_rate > 0.0:
@@ -68,15 +75,4 @@ class SimpleDenseNetwork(torch.nn.Module):
             )
 
         # Get the weights of the first layer
-        return self.network[0].weight.detach().numpy()
-
-
-def test_criterion(predictions, targets):
-    return (
-        torch.nn.BCELoss()(
-            torch.tensor(predictions, dtype=torch.float32),
-            torch.tensor(targets, dtype=torch.float32),
-        )
-        .numpy()
-        .item()
-    )
+        return self.network.cpu()[0].weight.detach().numpy()

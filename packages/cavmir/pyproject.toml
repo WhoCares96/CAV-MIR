@@ -21,7 +21,9 @@ dependencies = [
     "nnAudio",
     "soundfile",
     "librosa",
-    "webdataset"
+    "webdataset",
+    "matplotlib",
+    "seaborn"
 ]
 requires-python = ">=3.9"
 
