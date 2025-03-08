@@ -65,7 +65,7 @@ def evaluate_cav_model(
 
     fig, ax = plt.subplots(1, 3, figsize=(18, 5))
 
-    fig.suptitle(f"CAV Model Evaluation, Concept: {true_label_name}")
+    fig.suptitle(f'CAV Model Evaluation, Concept: "{true_label_name}"')
 
     # Confusion Matrix
     sns.heatmap(
