@@ -14,13 +14,13 @@ from sklearn.metrics import (
 from torch.utils.data import DataLoader
 
 from cavmir.training.fit import get_samples_from_batch
-from cavmir.training.network import SimpleDenseNetwork
+from cavmir.training.network import CAVNetwork
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def evaluate_cav_model(
-    model: SimpleDenseNetwork,
+    model: CAVNetwork,
     test_dataloader: DataLoader,
     true_label_name: str,
     device=DEVICE,
@@ -37,8 +37,8 @@ def evaluate_cav_model(
         for batch in test_dataloader:
             inputs, targets = get_samples_from_batch(batch, device)
 
-            prediction = model.forward_train(inputs)
-            prediction_labels = (torch.sigmoid(prediction) > 0.5).int()
+            prediction = model.forward(inputs)
+            prediction_labels = (prediction > 0.5).int()
 
             all_predicitions.extend(prediction.cpu().numpy())
             all_predicted_labels.extend(prediction_labels.cpu().numpy())

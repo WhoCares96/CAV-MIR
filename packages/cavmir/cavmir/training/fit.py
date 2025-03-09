@@ -5,7 +5,7 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from cavmir.training.network import SimpleDenseNetwork
+from cavmir.training.network import CAVNetwork
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,7 +25,7 @@ def get_sample_shapes(dataset: DataLoader, device=DEVICE) -> tuple[int, int]:
 
 
 def fit_cav_model(
-    model: SimpleDenseNetwork,
+    model: CAVNetwork,
     train_dataset: DataLoader,
     val_dataset: DataLoader,
     out_files_dir: str,
