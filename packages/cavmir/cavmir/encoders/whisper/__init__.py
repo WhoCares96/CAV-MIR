@@ -16,12 +16,6 @@ MODEL_ID_REPOSITORY_MAP = {
 }
 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
-model_id = "openai/whisper-large-v3-turbo"
-
-
 class WhisperEncoder(AudioEncoder):
     def __init__(self, model_id: str = "whisper_large_turbo"):
         self.model_id = model_id
