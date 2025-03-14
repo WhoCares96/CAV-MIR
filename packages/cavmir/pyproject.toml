@@ -23,7 +23,8 @@ dependencies = [
     "librosa",
     "webdataset",
     "matplotlib",
-    "seaborn"
+    "seaborn",
+    "accelerate"
 ]
 requires-python = ">=3.9"
 
