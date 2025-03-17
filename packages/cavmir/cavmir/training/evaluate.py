@@ -1,3 +1,5 @@
+import json
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
@@ -23,6 +25,7 @@ def evaluate_cav_model(
     model: CAVNetwork,
     test_dataloader: DataLoader,
     true_label_name: str,
+    loss_history_dir: str | None = None,
     device=DEVICE,
 ) -> dict:
     model = model.to(device)
@@ -63,9 +66,21 @@ def evaluate_cav_model(
 
     precision, recall, _ = precision_recall_curve(true_labels, all_predicitions)
 
-    fig, ax = plt.subplots(1, 3, figsize=(18, 5))
+    if loss_history_dir:
+        fig, ax = plt.subplots(1, 4, figsize=(21, 5))
+    else:
+        fig, ax = plt.subplots(1, 3, figsize=(16, 5))
 
     fig.suptitle(f'CAV Model Evaluation, Concept: "{true_label_name}"')
+
+    if loss_history_dir is not None:
+        # Loss History
+        loss_history = json.load(open(loss_history_dir))
+        ax[0].plot(loss_history["train_loss"], label="train")
+        ax[0].plot(loss_history["val_loss"], label="val")
+        ax[0].set_title("Loss History")
+        ax[0].set_xlabel("Epoch")
+        ax[0].set_ylabel("Loss")
 
     # Confusion Matrix
     sns.heatmap(
@@ -75,25 +90,25 @@ def evaluate_cav_model(
         cmap="Blues",
         xticklabels=[f"not {true_label_name}", true_label_name],
         yticklabels=[f"not {true_label_name}", true_label_name],
-        ax=ax[0],
+        ax=ax[-3],
     )
-    ax[0].set_title("Confusion Matrix")
-    ax[0].set_xlabel("Predicted Label")
-    ax[0].set_ylabel("True Label")
+    ax[-3].set_title("Confusion Matrix")
+    ax[-3].set_xlabel("Predicted Label")
+    ax[-3].set_ylabel("True Label")
 
     # ROC Curve
-    ax[1].plot(fpr, tpr, color="blue", lw=2, label=f"AUC = {roc_auc:.2f}")
-    ax[1].plot([0, 1], [0, 1], color="gray", linestyle="--")
-    ax[1].set_title("ROC Curve")
-    ax[1].set_xlabel("False Positive Rate")
-    ax[1].set_ylabel("True Positive Rate")
-    ax[1].legend(loc="lower right")
+    ax[-2].plot(fpr, tpr, color="blue", lw=2, label=f"AUC = {roc_auc:.2f}")
+    ax[-2].plot([0, 1], [0, 1], color="gray", linestyle="--")
+    ax[-2].set_title("ROC Curve")
+    ax[-2].set_xlabel("False Positive Rate")
+    ax[-2].set_ylabel("True Positive Rate")
+    ax[-2].legend(loc="lower right")
 
     # Precision-Recall Curve
-    ax[2].plot(recall, precision, color="green", lw=2)
-    ax[2].set_title("Precision-Recall Curve")
-    ax[2].set_xlabel("Recall")
-    ax[2].set_ylabel("Precision")
+    ax[-1].plot(recall, precision, color="green", lw=2)
+    ax[-1].set_title("Precision-Recall Curve")
+    ax[-1].set_xlabel("Recall")
+    ax[-1].set_ylabel("Precision")
 
     plt.tight_layout()
     plt.show()

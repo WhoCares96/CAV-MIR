@@ -82,7 +82,9 @@ def create_dataloader_from_webdataset_path(
     else:
         raise ValueError("Invalid path_to_files provided.")
 
-    dataset = wds.WebDataset(all_webdataset_files).decode(data_decoder)
+    dataset = wds.WebDataset(all_webdataset_files, shardshuffle=False).decode(
+        data_decoder
+    )
     dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
     return dataloader

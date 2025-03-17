@@ -22,7 +22,7 @@ def calculate_tcav_score(
     float
         The TCAV score.
     """
-    target_activations = np.dot(target_embeddings, np.atleast_2d(cav_vector.T))
+    target_activations = np.dot(target_embeddings, np.atleast_2d(cav_vector).T)
     tcav_score = np.sum(target_activations > 0) / len(target_activations)
 
     return tcav_score

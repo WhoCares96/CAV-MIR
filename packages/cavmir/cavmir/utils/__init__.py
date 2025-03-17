@@ -8,7 +8,17 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
+import torch
 from fsspec import AbstractFileSystem
+
+from cavmir.training.dataset import (
+    TrainingSample,
+    create_dataloader_from_webdataset_path,
+    create_webdataset,
+)
+from cavmir.training.evaluate import evaluate_cav_model
+from cavmir.training.fit import fit_cav_model
+from cavmir.training.network import CAVNetwork
 
 
 def create_embedding_path(song_id: str, embedding_prefix: str, encoder_id: str) -> str:
@@ -25,7 +35,7 @@ def load_embedding(
 
 
 def load_embeddings(
-    dataset: pd.DataFrame,
+    song_ids: list[str],
     embedding_prefix: str,
     encoder_id: str,
     fs: AbstractFileSystem,
@@ -34,10 +44,173 @@ def load_embeddings(
         return np.array(
             list(
                 executor.map(
-                    lambda row: load_embedding(
-                        row.song_id, embedding_prefix, encoder_id, fs
+                    lambda song_id: load_embedding(
+                        song_id, embedding_prefix, encoder_id, fs
                     ),
-                    dataset.itertuples(),
+                    song_ids,
                 )
             )
         )
+
+
+def append_embeddings_to_df(
+    df: pd.DataFrame, embedding_prefix: str, encoder_id: str, fs: AbstractFileSystem
+) -> pd.DataFrame:
+    embeddings = load_embeddings(df.song_id.tolist(), embedding_prefix, encoder_id, fs)
+    df["embedding"] = embeddings.tolist()
+
+    return df
+
+
+def create_training_samples_from_df(df: pd.DataFrame) -> list[TrainingSample]:
+    training_samples = []
+
+    for row in df.itertuples():
+        training_sample = TrainingSample(
+            id=str(row.song_id),
+            embedding=np.array(row.embedding),
+            target=np.array([row.target]),
+        )
+
+        training_sample.validate_attributes()
+        training_samples.append(training_sample)
+
+    return training_samples
+
+
+def create_subset_for_training(
+    df: pd.DataFrame,
+    target_column: str,
+    target_name: str,
+    training_size: int,
+    validation_size: int,
+    random_state: int | None = None,
+    shuffle: bool = True,
+) -> tuple[pd.Series, pd.Series]:
+    """
+    Create a subset of the dataframe for training and validation.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe to create the subset from.
+    target_column : str
+        The column name of the target variable.
+    target_name : str
+        The name of the target class.
+    training_size : int
+        The size of the training set
+    random_state : int | None, optional
+        The random state to use for sampling, by default None
+    shuffle : bool, optional
+        Whether to shuffle the data, by default True
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        The training and validation dataframes
+    """
+
+    def equally_sample_from_df(
+        df: pd.DataFrame, n: int, random_state: int
+    ) -> pd.Series:
+        df_positive = df[df[target_column] == target_name]
+        df_negative = df[df[target_column] != target_name]
+
+        df_positive_sample = df_positive.sample(n=n // 2, random_state=random_state)
+        df_negative_sample = df_negative.sample(n=n // 2, random_state=random_state)
+
+        return pd.concat([df_positive_sample, df_negative_sample])
+
+    if random_state is None:
+        random_state = np.random.randint(0, 2**32 - 1)
+
+    df_train = equally_sample_from_df(df, training_size, random_state)
+
+    df_val = equally_sample_from_df(
+        df.drop(df_train.index), validation_size, random_state
+    )
+
+    if shuffle:
+        df_train = df_train.sample(frac=1, random_state=random_state)
+        df_val = df_val.sample(frac=1, random_state=random_state)
+
+    return df_train, df_val
+
+
+def train_one_cav(
+    train_index: int,
+    df: pd.DataFrame,
+    project_name: str,
+    encoder_id: str,
+    target_column: str,
+    target_positive_class: str,
+    num_train_runs: int,
+    training_sample_count: int,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    embedding_dim: int,
+    dropout_rate: float,
+    test_dataloader: torch.utils.data.DataLoader,
+) -> tuple[np.ndarray, dict]:
+    """Perform one training run for a CAV model consisting of:
+    - Creating a training and validation dataset
+    - Training the model
+    - Evaluating the model
+    - displaying the evaluation results
+    - Returning the CAV vector
+    """
+
+    print(f"Training run {train_index}/{num_train_runs}")
+
+    df_train, df_val = create_subset_for_training(
+        df=df,
+        target_column=target_column,
+        target_name=target_positive_class,
+        training_size=training_sample_count,
+        validation_size=training_sample_count,
+        random_state=train_index,
+        shuffle=True,
+    )
+
+    train_samples = create_training_samples_from_df(df_train)
+    val_samples = create_training_samples_from_df(df_val)
+
+    create_webdataset(train_samples, f"datasets/{encoder_id}_train_{project_name}.tar")
+    create_webdataset(val_samples, f"datasets/{encoder_id}_val_{project_name}.tar")
+
+    train_dataloader = create_dataloader_from_webdataset_path(
+        f"datasets/{encoder_id}_train_{project_name}.tar", batch_size=batch_size
+    )
+
+    val_dataloader = create_dataloader_from_webdataset_path(
+        f"datasets/{encoder_id}_val_{project_name}.tar", batch_size=batch_size
+    )
+
+    model = CAVNetwork(
+        input_shape=embedding_dim,
+        target_shape=1,
+        dropout_rate=dropout_rate,
+    )
+
+    fit_cav_model(
+        model=model,
+        train_dataset=train_dataloader,
+        val_dataset=val_dataloader,
+        out_files_dir=f"trainings/{project_name}/",
+        num_epochs=epochs,
+        learning_rate=learning_rate,
+        verbose_steps=10,
+    )
+
+    evaluation_metrics = evaluate_cav_model(
+        model=model,
+        test_dataloader=test_dataloader,
+        true_label_name=target_positive_class,
+        loss_history_dir=f"trainings/{project_name}/loss_history.json",
+    )
+
+    cav_vector = model.get_concept_activation_vector()
+
+    return cav_vector, evaluation_metrics
