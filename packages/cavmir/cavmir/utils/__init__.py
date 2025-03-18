@@ -3,6 +3,7 @@ Collection of utility functions specific to how we process the training data, ev
 """
 
 import io
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -145,7 +146,6 @@ def train_one_cav(
     encoder_id: str,
     target_column: str,
     target_positive_class: str,
-    num_train_runs: int,
     training_sample_count: int,
     epochs: int,
     batch_size: int,
@@ -153,6 +153,7 @@ def train_one_cav(
     embedding_dim: int,
     dropout_rate: float,
     test_dataloader: torch.utils.data.DataLoader,
+    validation_sample_count: int | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Perform one training run for a CAV model consisting of:
     - Creating a training and validation dataset
@@ -162,14 +163,15 @@ def train_one_cav(
     - Returning the CAV vector
     """
 
-    print(f"Training run {train_index}/{num_train_runs}")
+    if validation_sample_count is None:
+        validation_sample_count = training_sample_count
 
     df_train, df_val = create_subset_for_training(
         df=df,
         target_column=target_column,
         target_name=target_positive_class,
         training_size=training_sample_count,
-        validation_size=training_sample_count,
+        validation_size=validation_sample_count,
         random_state=train_index,
         shuffle=True,
     )
@@ -214,3 +216,28 @@ def train_one_cav(
     cav_vector = model.get_concept_activation_vector()
 
     return cav_vector, evaluation_metrics
+
+
+def store_cav_vector_array(
+    data: np.ndarray | list[np.ndarray], file_name: str, project_name: str
+):
+    np.save(
+        os.path.join(
+            "trainings",
+            project_name,
+            file_name,
+        ),
+        np.array(data),
+    )
+
+
+def store_evaluation_metrics(
+    data: dict | list[dict], file_name: str, project_name: str
+):
+    json.dump(
+        data,
+        open(
+            os.path.join("trainings", project_name, file_name),
+            "w",
+        ),
+    )
