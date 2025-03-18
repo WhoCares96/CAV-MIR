@@ -81,8 +81,6 @@ def create_training_samples_from_df(df: pd.DataFrame) -> list[TrainingSample]:
 
 def create_subset_for_training(
     df: pd.DataFrame,
-    target_column: str,
-    target_name: str,
     training_size: int,
     validation_size: int,
     random_state: int | None = None,
@@ -95,10 +93,6 @@ def create_subset_for_training(
     ----------
     df : pd.DataFrame
         The dataframe to create the subset from.
-    target_column : str
-        The column name of the target variable.
-    target_name : str
-        The name of the target class.
     training_size : int
         The size of the training set
     random_state : int | None, optional
@@ -115,8 +109,8 @@ def create_subset_for_training(
     def equally_sample_from_df(
         df: pd.DataFrame, n: int, random_state: int
     ) -> pd.Series:
-        df_positive = df[df[target_column] == target_name]
-        df_negative = df[df[target_column] != target_name]
+        df_positive = df[df["target"] == 1]
+        df_negative = df[df["target"] == 0]
 
         df_positive_sample = df_positive.sample(n=n // 2, random_state=random_state)
         df_negative_sample = df_negative.sample(n=n // 2, random_state=random_state)
@@ -144,7 +138,6 @@ def train_one_cav(
     df: pd.DataFrame,
     project_name: str,
     encoder_id: str,
-    target_column: str,
     target_positive_class: str,
     training_sample_count: int,
     epochs: int,
@@ -166,10 +159,10 @@ def train_one_cav(
     if validation_sample_count is None:
         validation_sample_count = training_sample_count
 
+    print(training_sample_count, validation_sample_count)
+
     df_train, df_val = create_subset_for_training(
         df=df,
-        target_column=target_column,
-        target_name=target_positive_class,
         training_size=training_sample_count,
         validation_size=validation_sample_count,
         random_state=train_index,
