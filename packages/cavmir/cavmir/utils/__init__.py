@@ -183,9 +183,8 @@ def create_subset_for_training(
     return df_train, df_val
 
 
-def get_CAV_logistic(X, y):
+def get_CAV_logistic(X: np.ndarray, y: np.ndarray):
     lr = LogisticRegression(
-        C=0.5,
         solver="liblinear",
     )
     lr.fit(X, y)
