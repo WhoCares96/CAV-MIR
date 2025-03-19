@@ -27,6 +27,7 @@ def evaluate_cav_model(
     true_label_name: str,
     loss_history_dir: str | None = None,
     device=DEVICE,
+    plot_evaluation=False,
 ) -> dict:
     model = model.to(device)
 
@@ -58,6 +59,9 @@ def evaluate_cav_model(
         "f1_score": f1,
         "accuracy": accuracy,
     }
+
+    if plot_evaluation is False:
+        return metrics
 
     cm = confusion_matrix(true_labels, all_predicted_labels)
 

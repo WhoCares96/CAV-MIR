@@ -6,11 +6,15 @@ import io
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 import torch
 from fsspec import AbstractFileSystem
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression, Ridge
+from torch.utils.data import DataLoader
 
 from cavmir.training.dataset import (
     TrainingSample,
@@ -54,9 +58,38 @@ def load_embeddings(
         )
 
 
-def append_embeddings_to_df(
-    df: pd.DataFrame, embedding_prefix: str, encoder_id: str, fs: AbstractFileSystem
+def cache_df(cache_dir: str):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            cache_file = os.path.join(
+                cache_dir,
+                f"{func.__name__}_{args[0]}_{args[1]}_{args[2]}.pkl",
+            )
+
+            if os.path.exists(cache_file):
+                return pd.read_pickle(cache_file)
+            else:
+                result = func(*args, **kwargs)
+                result.to_pickle(cache_file)
+                return result
+
+        return wrapper
+
+    return decorator
+
+
+@cache_df(cache_dir="/tmp")
+def load_df_and_embeddings(
+    project_name: str,
+    dataset_type: Literal["train", "test"],
+    encoder_id: str,
+    dataset_prefix: str,
+    embedding_prefix: str,
+    fs: AbstractFileSystem,
 ) -> pd.DataFrame:
+    df = pd.read_csv(
+        os.path.join(dataset_prefix, f"{dataset_type}_dataset_{project_name}.csv")
+    )
     embeddings = load_embeddings(df.song_id.tolist(), embedding_prefix, encoder_id, fs)
     df["embedding"] = embeddings.tolist()
 
@@ -77,6 +110,23 @@ def create_training_samples_from_df(df: pd.DataFrame) -> list[TrainingSample]:
         training_samples.append(training_sample)
 
     return training_samples
+
+
+def create_in_memory_test_dataloader(df: pd.DataFrame) -> DataLoader:
+    embeddings = np.asarray(df["embedding"].values)
+    labels = df["target"].values
+
+    samples = [
+        {
+            "npz": {
+                "embedding": torch.tensor(embedding, dtype=torch.float),
+                "target": torch.tensor(label, dtype=torch.float),
+            }
+        }
+        for embedding, label in zip(embeddings, labels)
+    ]
+
+    return DataLoader(samples, batch_size=len(df), shuffle=False)
 
 
 def create_subset_for_training(
@@ -131,6 +181,64 @@ def create_subset_for_training(
         df_val = df_val.sample(frac=1, random_state=random_state)
 
     return df_train, df_val
+
+
+def get_CAV_logistic(X, y):
+    lr = LogisticRegression(
+        C=0.5,
+        solver="liblinear",
+    )
+    lr.fit(X, y)
+    return np.atleast_2d(lr.coef_)
+
+
+def lda_one_cav(
+    random_state: int,
+    df: pd.DataFrame,
+    project_name: str,
+    training_sample_count: int,
+    embedding_dim: int,
+    test_dataloader: torch.utils.data.DataLoader,
+    plot_evaluation: bool = False,
+) -> tuple[np.ndarray, dict]:
+    """
+    Perform one training run for a LDA model consisting of:
+    - Creating a training and validation dataset
+    - Training the model
+    - Evaluating the model
+    - displaying the evaluation results
+    - Returning the CAV vector
+    """
+
+    df_train, _ = create_subset_for_training(
+        df=df,
+        training_size=training_sample_count,
+        validation_size=0,
+        random_state=random_state,
+        shuffle=True,
+    )
+
+    train_embeddings = np.array([np.array(x) for x in df_train.embedding.values])
+    train_targets = np.array([np.array(x) for x in df_train.target.values])
+
+    cav = get_CAV_logistic(train_embeddings, train_targets)
+
+    model = CAVNetwork(
+        input_shape=embedding_dim,
+        target_shape=1,
+        dropout_rate=0.0,
+    )
+    model.set_concept_activation_vector(cav)
+
+    evaluation_metrics = evaluate_cav_model(
+        model=model,
+        test_dataloader=test_dataloader,
+        true_label_name=project_name,
+        loss_history_dir=None,
+        plot_evaluation=plot_evaluation,
+    )
+
+    return cav, evaluation_metrics
 
 
 def train_one_cav(
@@ -212,11 +320,24 @@ def train_one_cav(
 
 
 def store_cav_vector_array(
-    data: np.ndarray | list[np.ndarray], file_name: str, project_name: str
+    data: np.ndarray | list[np.ndarray],
+    file_name: str,
+    encoder_id: str,
+    project_name: str,
 ):
+    os.makedirs(
+        os.path.join(
+            "trainings",
+            encoder_id,
+            project_name,
+        ),
+        exist_ok=True,
+    )
+
     np.save(
         os.path.join(
             "trainings",
+            encoder_id,
             project_name,
             file_name,
         ),
@@ -225,12 +346,21 @@ def store_cav_vector_array(
 
 
 def store_evaluation_metrics(
-    data: dict | list[dict], file_name: str, project_name: str
+    data: dict | list[dict], file_name: str, encoder_id: str, project_name: str
 ):
+    os.makedirs(
+        os.path.join(
+            "trainings",
+            encoder_id,
+            project_name,
+        ),
+        exist_ok=True,
+    )
+
     json.dump(
         data,
         open(
-            os.path.join("trainings", project_name, file_name),
+            os.path.join("trainings", encoder_id, project_name, file_name),
             "w",
         ),
     )
