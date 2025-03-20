@@ -61,8 +61,6 @@ class MuQEncoder(AudioEncoder):
             case "muq_mulan_large":
                 outputs = outputs[None]
 
-        print(outputs.shape)
-
         # by default, we return the mean of the last hidden states
         if not return_segments:
             outputs = outputs.mean(-2)
