@@ -24,7 +24,8 @@ dependencies = [
     "webdataset",
     "matplotlib",
     "seaborn",
-    "accelerate"
+    "accelerate",
+    "muq"
 ]
 requires-python = ">=3.9"
 
