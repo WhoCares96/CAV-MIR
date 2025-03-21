@@ -112,7 +112,9 @@ def create_training_samples_from_df(df: pd.DataFrame) -> list[TrainingSample]:
     return training_samples
 
 
-def create_in_memory_test_dataloader(df: pd.DataFrame) -> DataLoader:
+def create_in_memory_test_dataloader(
+    df: pd.DataFrame, batch_size: int | None = None
+) -> DataLoader:
     embeddings = np.asarray(df["embedding"].values)
     labels = df["target"].values
 
@@ -120,13 +122,16 @@ def create_in_memory_test_dataloader(df: pd.DataFrame) -> DataLoader:
         {
             "npz": {
                 "embedding": torch.tensor(embedding, dtype=torch.float),
-                "target": torch.tensor(label, dtype=torch.float),
+                "target": torch.tensor(label, dtype=torch.float)[None],
             }
         }
         for embedding, label in zip(embeddings, labels)
     ]
 
-    return DataLoader(samples, batch_size=len(df), shuffle=False)
+    if not batch_size:
+        batch_size = len(df)
+
+    return DataLoader(samples, batch_size=batch_size, shuffle=False)
 
 
 def create_subset_for_training(
@@ -241,19 +246,16 @@ def lda_one_cav(
 
 
 def train_one_cav(
-    train_index: int,
+    random_state: int,
     df: pd.DataFrame,
     project_name: str,
-    encoder_id: str,
-    target_positive_class: str,
     training_sample_count: int,
+    validation_sample_count: int,
     epochs: int,
-    batch_size: int,
     learning_rate: float,
     embedding_dim: int,
     dropout_rate: float,
-    test_dataloader: torch.utils.data.DataLoader,
-    validation_sample_count: int | None = None,
+    df_test: pd.DataFrame,
 ) -> tuple[np.ndarray, dict]:
     """Perform one training run for a CAV model consisting of:
     - Creating a training and validation dataset
@@ -264,31 +266,25 @@ def train_one_cav(
     """
 
     if validation_sample_count is None:
-        validation_sample_count = training_sample_count
-
-    print(training_sample_count, validation_sample_count)
+        validation_sample_count = -1
 
     df_train, df_val = create_subset_for_training(
         df=df,
         training_size=training_sample_count,
         validation_size=validation_sample_count,
-        random_state=train_index,
+        random_state=random_state,
         shuffle=True,
     )
 
-    train_samples = create_training_samples_from_df(df_train)
-    val_samples = create_training_samples_from_df(df_val)
+    # train_samples = create_training_samples_from_df(df_train)
+    # val_samples = create_training_samples_from_df(df_val)
 
-    create_webdataset(train_samples, f"datasets/{encoder_id}_train_{project_name}.tar")
-    create_webdataset(val_samples, f"datasets/{encoder_id}_val_{project_name}.tar")
+    # create_webdataset(train_samples, f"datasets/{encoder_id}_train_{project_name}.tar")
+    # create_webdataset(val_samples, f"datasets/{encoder_id}_val_{project_name}.tar")
 
-    train_dataloader = create_dataloader_from_webdataset_path(
-        f"datasets/{encoder_id}_train_{project_name}.tar", batch_size=batch_size
-    )
-
-    val_dataloader = create_dataloader_from_webdataset_path(
-        f"datasets/{encoder_id}_val_{project_name}.tar", batch_size=batch_size
-    )
+    train_dataloader = create_in_memory_test_dataloader(df_train)
+    val_dataloader = create_in_memory_test_dataloader(df_val)
+    test_dataloader = create_in_memory_test_dataloader(df_test)
 
     model = CAVNetwork(
         input_shape=embedding_dim,
@@ -303,14 +299,15 @@ def train_one_cav(
         out_files_dir=f"trainings/{project_name}/",
         num_epochs=epochs,
         learning_rate=learning_rate,
-        verbose_steps=10,
+        verbose_steps=100,
     )
 
     evaluation_metrics = evaluate_cav_model(
         model=model,
         test_dataloader=test_dataloader,
-        true_label_name=target_positive_class,
+        true_label_name=project_name,
         loss_history_dir=f"trainings/{project_name}/loss_history.json",
+        plot_evaluation=True,
     )
 
     cav_vector = model.get_concept_activation_vector()
