@@ -140,7 +140,7 @@ def create_subset_for_training(
     validation_size: int,
     random_state: int | None = None,
     shuffle: bool = True,
-) -> tuple[pd.Series, pd.Series]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Create a subset of the dataframe for training and validation.
 
@@ -163,7 +163,7 @@ def create_subset_for_training(
 
     def equally_sample_from_df(
         df: pd.DataFrame, n: int, random_state: int
-    ) -> pd.Series:
+    ) -> pd.DataFrame:
         df_positive = df[df["target"] == 1]
         df_negative = df[df["target"] == 0]
 
@@ -188,9 +188,12 @@ def create_subset_for_training(
     return df_train, df_val
 
 
-def get_CAV_logistic(X: np.ndarray, y: np.ndarray):
+def get_CAV_logistic(X: np.ndarray, y: np.ndarray, random_state: int) -> np.ndarray:
     lr = LogisticRegression(
         solver="liblinear",
+        C=1.0,
+        max_iter=1000,
+        random_state=random_state,
     )
     lr.fit(X, y)
     return np.atleast_2d(lr.coef_)
@@ -200,7 +203,7 @@ def lda_one_cav(
     random_state: int,
     df: pd.DataFrame,
     project_name: str,
-    training_sample_count: int,
+    training_sample_size: int,
     embedding_dim: int,
     test_dataloader: torch.utils.data.DataLoader,
     plot_evaluation: bool = False,
@@ -216,7 +219,7 @@ def lda_one_cav(
 
     df_train, _ = create_subset_for_training(
         df=df,
-        training_size=training_sample_count,
+        training_size=training_sample_size,
         validation_size=0,
         random_state=random_state,
         shuffle=True,
@@ -225,7 +228,7 @@ def lda_one_cav(
     train_embeddings = np.array([np.array(x) for x in df_train.embedding.values])
     train_targets = np.array([np.array(x) for x in df_train.target.values])
 
-    cav = get_CAV_logistic(train_embeddings, train_targets)
+    cav = get_CAV_logistic(train_embeddings, train_targets, random_state)
 
     model = CAVNetwork(
         input_shape=embedding_dim,
@@ -275,12 +278,6 @@ def train_one_cav(
         random_state=random_state,
         shuffle=True,
     )
-
-    # train_samples = create_training_samples_from_df(df_train)
-    # val_samples = create_training_samples_from_df(df_val)
-
-    # create_webdataset(train_samples, f"datasets/{encoder_id}_train_{project_name}.tar")
-    # create_webdataset(val_samples, f"datasets/{encoder_id}_val_{project_name}.tar")
 
     train_dataloader = create_in_memory_test_dataloader(df_train)
     val_dataloader = create_in_memory_test_dataloader(df_val)
