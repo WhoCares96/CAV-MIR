@@ -36,7 +36,7 @@ def fit_cav_model(
     verbose_steps: int = 1,
 ) -> None:
     def print_if_verbose(message: str, epoch: int) -> None:
-        if epoch % verbose_steps == 0:
+        if epoch + 1 % verbose_steps == 0:
             print(message)
 
     model = model.to(device)

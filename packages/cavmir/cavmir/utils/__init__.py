@@ -112,21 +112,26 @@ def create_training_samples_from_df(df: pd.DataFrame) -> list[TrainingSample]:
     return training_samples
 
 
-def create_in_memory_test_dataloader(
-    df: pd.DataFrame, batch_size: int | None = None
+def create_in_memory_dataloader(
+    df: pd.DataFrame, batch_size: int | None = None, embedding_only: bool = False
 ) -> DataLoader:
     embeddings = np.asarray(df["embedding"].values)
     labels = df["target"].values
 
-    samples = [
-        {
-            "npz": {
-                "embedding": torch.tensor(embedding, dtype=torch.float),
-                "target": torch.tensor(label, dtype=torch.float)[None],
+    if embedding_only:
+        samples = [
+            torch.tensor(embedding, dtype=torch.float) for embedding in embeddings
+        ]
+    else:
+        samples = [
+            {
+                "npz": {
+                    "embedding": torch.tensor(embedding, dtype=torch.float),
+                    "target": torch.tensor(label, dtype=torch.float)[None],
+                }
             }
-        }
-        for embedding, label in zip(embeddings, labels)
-    ]
+            for embedding, label in zip(embeddings, labels)
+        ]
 
     if not batch_size:
         batch_size = len(df)
@@ -196,7 +201,7 @@ def get_CAV_logistic(X: np.ndarray, y: np.ndarray, random_state: int) -> np.ndar
         random_state=random_state,
     )
     lr.fit(X, y)
-    return np.atleast_2d(lr.coef_)
+    return np.atleast_2d(lr.coef_), lr.intercept_
 
 
 def lda_one_cav(
@@ -228,7 +233,7 @@ def lda_one_cav(
     train_embeddings = np.array([np.array(x) for x in df_train.embedding.values])
     train_targets = np.array([np.array(x) for x in df_train.target.values])
 
-    cav = get_CAV_logistic(train_embeddings, train_targets, random_state)
+    cav, bias = get_CAV_logistic(train_embeddings, train_targets, random_state)
 
     model = CAVNetwork(
         input_shape=embedding_dim,
@@ -245,7 +250,7 @@ def lda_one_cav(
         plot_evaluation=plot_evaluation,
     )
 
-    return cav, evaluation_metrics
+    return cav, bias, evaluation_metrics
 
 
 def train_one_cav(
@@ -259,6 +264,8 @@ def train_one_cav(
     embedding_dim: int,
     dropout_rate: float,
     df_test: pd.DataFrame,
+    plot_evaluation: bool = False,
+    verbose_steps: int = 100,
 ) -> tuple[np.ndarray, dict]:
     """Perform one training run for a CAV model consisting of:
     - Creating a training and validation dataset
@@ -279,9 +286,9 @@ def train_one_cav(
         shuffle=True,
     )
 
-    train_dataloader = create_in_memory_test_dataloader(df_train)
-    val_dataloader = create_in_memory_test_dataloader(df_val)
-    test_dataloader = create_in_memory_test_dataloader(df_test)
+    train_dataloader = create_in_memory_dataloader(df_train)
+    val_dataloader = create_in_memory_dataloader(df_val)
+    test_dataloader = create_in_memory_dataloader(df_test)
 
     model = CAVNetwork(
         input_shape=embedding_dim,
@@ -296,7 +303,7 @@ def train_one_cav(
         out_files_dir=f"trainings/{project_name}/",
         num_epochs=epochs,
         learning_rate=learning_rate,
-        verbose_steps=100,
+        verbose_steps=verbose_steps,
     )
 
     evaluation_metrics = evaluate_cav_model(
@@ -304,12 +311,12 @@ def train_one_cav(
         test_dataloader=test_dataloader,
         true_label_name=project_name,
         loss_history_dir=f"trainings/{project_name}/loss_history.json",
-        plot_evaluation=True,
+        plot_evaluation=plot_evaluation,
     )
 
     cav_vector = model.get_concept_activation_vector()
 
-    return cav_vector, evaluation_metrics
+    return cav_vector, model.linear.cpu().bias.detach().numpy(), evaluation_metrics
 
 
 def store_cav_vector_array(
