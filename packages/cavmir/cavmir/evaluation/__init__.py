@@ -2,7 +2,7 @@ import numpy as np
 
 
 def calculate_tcav_score(
-    cav_vector: np.ndarray, target_embeddings: np.ndarray, cav_bias: float = 0.0
+    cav_weight: np.ndarray, cav_bias: float | np.ndarray, target_embeddings: np.ndarray
 ) -> float:
     """
     Calculate the TCAV score for a given CAV vector and target embeddings.
@@ -23,7 +23,7 @@ def calculate_tcav_score(
         The TCAV score.
     """
     target_activations = (
-        np.dot(target_embeddings, np.atleast_2d(cav_vector).T) + cav_bias
+        np.dot(target_embeddings, np.atleast_2d(cav_weight).T) + cav_bias
     )
     tcav_score = np.sum(target_activations > 0) / len(target_activations)
 

@@ -12,18 +12,17 @@ import numpy as np
 import pandas as pd
 import torch
 from fsspec import AbstractFileSystem
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.linear_model import LogisticRegression
 from torch.utils.data import DataLoader
 
 from cavmir.training.dataset import (
     TrainingSample,
-    create_dataloader_from_webdataset_path,
-    create_webdataset,
 )
 from cavmir.training.evaluate import evaluate_cav_model
 from cavmir.training.fit import fit_cav_model
 from cavmir.training.network import CAVNetwork
+
+TRAININGS_PREFIX = os.environ["TRAININGS_PREFIX"]
 
 
 def create_embedding_path(song_id: str, embedding_prefix: str, encoder_id: str) -> str:
@@ -193,7 +192,9 @@ def create_subset_for_training(
     return df_train, df_val
 
 
-def get_CAV_logistic(X: np.ndarray, y: np.ndarray, random_state: int) -> np.ndarray:
+def get_CAV_logistic(
+    X: np.ndarray, y: np.ndarray, random_state: int
+) -> tuple[np.ndarray, np.ndarray]:
     lr = LogisticRegression(
         solver="liblinear",
         C=1.0,
@@ -204,15 +205,15 @@ def get_CAV_logistic(X: np.ndarray, y: np.ndarray, random_state: int) -> np.ndar
     return np.atleast_2d(lr.coef_), lr.intercept_
 
 
-def lda_one_cav(
+def train_cav_logistic_regression(
     random_state: int,
     df: pd.DataFrame,
     project_name: str,
     training_sample_size: int,
     embedding_dim: int,
-    test_dataloader: torch.utils.data.DataLoader,
+    df_test: pd.DataFrame,
     plot_evaluation: bool = False,
-) -> tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, np.ndarray, dict]:
     """
     Perform one training run for a LDA model consisting of:
     - Creating a training and validation dataset
@@ -242,6 +243,8 @@ def lda_one_cav(
     )
     model.set_concept_activation_vector(cav)
 
+    test_dataloader = create_in_memory_dataloader(df_test)
+
     evaluation_metrics = evaluate_cav_model(
         model=model,
         test_dataloader=test_dataloader,
@@ -253,12 +256,12 @@ def lda_one_cav(
     return cav, bias, evaluation_metrics
 
 
-def train_one_cav(
+def train_cav_classifier(
     random_state: int,
     df: pd.DataFrame,
     project_name: str,
-    training_sample_count: int,
-    validation_sample_count: int,
+    training_sample_size: int,
+    validation_sample_size: int,
     epochs: int,
     learning_rate: float,
     embedding_dim: int,
@@ -266,7 +269,7 @@ def train_one_cav(
     df_test: pd.DataFrame,
     plot_evaluation: bool = False,
     verbose_steps: int = 100,
-) -> tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, np.ndarray, dict]:
     """Perform one training run for a CAV model consisting of:
     - Creating a training and validation dataset
     - Training the model
@@ -275,13 +278,10 @@ def train_one_cav(
     - Returning the CAV vector
     """
 
-    if validation_sample_count is None:
-        validation_sample_count = -1
-
     df_train, df_val = create_subset_for_training(
         df=df,
-        training_size=training_sample_count,
-        validation_size=validation_sample_count,
+        training_size=training_sample_size,
+        validation_size=validation_sample_size,
         random_state=random_state,
         shuffle=True,
     )
@@ -315,8 +315,9 @@ def train_one_cav(
     )
 
     cav_vector = model.get_concept_activation_vector()
+    bias = model.linear.cpu().bias.detach().numpy()
 
-    return cav_vector, model.linear.cpu().bias.detach().numpy(), evaluation_metrics
+    return cav_vector, bias, evaluation_metrics
 
 
 def store_cav_vector_array(
@@ -364,3 +365,20 @@ def store_evaluation_metrics(
             "w",
         ),
     )
+
+
+def get_cav_vectors(
+    project_name,
+    encoder_id,
+    train_type: Literal["weight_ttest", "weight_full", "bias_ttest", "bias_full"],
+    trainings_prefix=TRAININGS_PREFIX,
+):
+    cav_vector_dir = os.path.join(
+        trainings_prefix,
+        "trainings",
+        encoder_id,
+        project_name,
+        f"cav_{train_type}_{project_name}.npy",
+    )
+    cav_vector = np.load(cav_vector_dir)
+    return cav_vector
