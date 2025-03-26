@@ -26,93 +26,83 @@ class TrainingSample:
 
 
 def custom_webdataset_decoder(key, data):
-    """
-    Custom decoder implementation for cavmir webdatasets.
-    """
-
     key = key.split(".")[-1]
 
-    match key:
-        case "npz":
-            return np.load(BytesIO(data))
-        case "npy":
-            return np.load(BytesIO(data))
-        case _:
-            raise NotImplementedError(f"No decoding strategy for key: {key}")
+    if key in {"npz", "npy"}:
+        return np.load(BytesIO(data), allow_pickle=False)  # Explicitly disable pickle
+    else:
+        raise NotImplementedError(f"No decoding strategy for key: {key}")
 
 
 def create_dataloader_from_webdataset_path(
     path_or_file: str,
     batch_size: int,
     data_decoder: Callable = custom_webdataset_decoder,
+    shuffle: bool = False,  # Optional parameter for shuffling
+    num_workers: int = 4,  # Use more workers for parallel loading
 ) -> DataLoader:
     """
-    Create a torch DataLoader from a path containing webdataset file(s).
+    Create a torch DataLoader from a WebDataset file or directory.
 
     Parameters
     ----------
     path_or_file: str
-        The path to the webdataset file(s) or a single webdataset file.
+        The path to the WebDataset file(s) or directory.
     batch_size: int
-        The batch size to use for the DataLoader.
+        The batch size to use.
     data_decoder: Callable
-        The function to use to decode the data from the webdataset.
+        The function to use to decode data.
+    shuffle: bool
+        Whether to shuffle dataset shards.
+    num_workers: int
+        Number of DataLoader workers (recommended: 4-8 for large data).
 
     Returns
     -------
     DataLoader
-        A torch DataLoader object containing the data from the webdataset
-
-    Raises
-    ------
-    ValueError
-        If an invalid path_to_files is provided.
+        A PyTorch DataLoader.
     """
 
     if os.path.isdir(path_or_file):
         all_webdataset_files = [
             os.path.join(path_or_file, file)
-            for file in filter(
-                lambda file: file.endswith(".tar"), os.listdir(path_or_file)
-            )
+            for file in os.listdir(path_or_file)
             if file.endswith(".tar")
         ]
     elif os.path.isfile(path_or_file):
         all_webdataset_files = [path_or_file]
     else:
-        raise ValueError("Invalid path_to_files provided.")
+        raise ValueError("Invalid path provided.")
 
-    dataset = wds.WebDataset(all_webdataset_files).decode(data_decoder)
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=1)
+    dataset = wds.WebDataset(all_webdataset_files, shardshuffle=shuffle).decode(
+        data_decoder
+    )
+
+    dataloader = DataLoader(
+        dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True
+    )
 
     return dataloader
 
 
-def create_webdataset(samples: list[TrainingSample], output_dir) -> None:
+def create_webdataset(samples: list[TrainingSample], output_dir: str) -> None:
     """
-    Create a webdataset from a list of TrainingSample objects.
+    Create a WebDataset from a list of TrainingSample objects.
 
     Parameters
     ----------
     samples: list[TrainingSample]
-        A list of TrainingSample objects to write to the webdataset.
-
+        List of TrainingSample objects.
     output_dir: str
-        Path to store the webdataset to.
-
+        Path to store the dataset.
     """
 
     os.makedirs(os.path.dirname(output_dir), exist_ok=True)
 
-    with open(output_dir, "wb") as webdataset_obj:
-        with wds.TarWriter(webdataset_obj) as tar_writer:
-            for sample in samples:
-                tar_writer.write(
-                    {
-                        "__key__": sample.id,
-                        "npz": {
-                            "embedding": sample.embedding,
-                            "target": sample.target,
-                        },
-                    }
-                )
+    with wds.TarWriter(output_dir) as tar_writer:
+        for sample in samples:
+            buffer = BytesIO()
+            np.savez_compressed(
+                buffer, embedding=sample.embedding, target=sample.target
+            )
+            tar_writer.write({"__key__": sample.id, "npz": buffer.getvalue()})

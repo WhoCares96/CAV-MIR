@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 
 *.tar
+*.pth
+loss_history.json

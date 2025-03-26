@@ -33,7 +33,12 @@ def fit_cav_model(
     learning_rate: float = 0.001,
     early_stopping_patience: int = 5,
     device=DEVICE,
+    verbose_steps: int = 1,
 ) -> None:
+    def print_if_verbose(message: str, epoch: int) -> None:
+        if (epoch + 1) % verbose_steps == 0 and verbose_steps > 0:
+            print(message)
+
     model = model.to(device)
 
     os.makedirs(out_files_dir, exist_ok=True)
@@ -49,7 +54,7 @@ def fit_cav_model(
 
     # Training Phase
     for epoch in range(num_epochs):
-        print(f"Epoch {epoch + 1}/{num_epochs}")
+        print_if_verbose(f"Epoch {epoch + 1}/{num_epochs}", epoch)
 
         model.train()
         epoch_loss = 0.0
@@ -69,7 +74,8 @@ def fit_cav_model(
             epoch_loss += loss.item()
 
         avg_train_loss = epoch_loss / (i + 1)
-        print(f"Epoch {epoch + 1} Train Loss: {avg_train_loss:.4f}")
+
+        print_if_verbose(f"Epoch {epoch + 1} Train Loss: {avg_train_loss:.4f}", epoch)
 
         # Validation Phase
         model.eval()
@@ -85,7 +91,10 @@ def fit_cav_model(
                 val_loss += loss.item()
 
             avg_val_loss = val_loss / (i + 1)
-            print(f"Epoch {epoch + 1} Validation Loss: {avg_val_loss:.4f}")
+
+        print_if_verbose(
+            f"Epoch {epoch + 1} Validation Loss: {avg_val_loss:.4f}", epoch
+        )
 
         scheduler.step(avg_val_loss)
 
@@ -93,7 +102,10 @@ def fit_cav_model(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             epochs_no_improve = 0
-            save_model(model, out_files_dir)
+            model_file_name = save_model(model, out_files_dir)
+            if verbose_steps > 0:
+                print_if_verbose(f"Model saved to {model_file_name}", epoch)
+
         else:
             epochs_no_improve += 1
 
@@ -101,18 +113,21 @@ def fit_cav_model(
         val_loss_history.append(avg_val_loss)
 
         if epochs_no_improve >= early_stopping_patience:
-            print(f"Early stopping at epoch {epoch + 1}")
+            if verbose_steps > 0:
+                print(f"Early stopping at epoch {epoch + 1}")
             break
 
+    if verbose_steps > 0:
+        print(f"Training completed. Saving loss history to {out_files_dir}")
     save_loss_history(train_loss_history, val_loss_history, out_files_dir)
 
 
 def save_model(
     model: torch.nn.Module, out_files_dir: str, model_name: str = "state_dict.pth"
-) -> None:
+) -> str:
     model_file_name = os.path.join(out_files_dir, model_name)
     torch.save(model.state_dict(), model_file_name)
-    print(f"Model saved to {model_file_name}")
+    return model_file_name
 
 
 def save_loss_history(
@@ -129,5 +144,3 @@ def save_loss_history(
     loss_history_file_name = os.path.join(out_files_dir, loss_history_file_name)
     with open(loss_history_file_name, "w") as f:
         json.dump(loss_history, f)
-
-    print(f"Loss history saved to {loss_history_file_name}")

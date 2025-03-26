@@ -13,6 +13,7 @@ torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 MODEL_ID_REPOSITORY_MAP = {
     "whisper_large_turbo": "openai/whisper-large-v3-turbo",
+    "whisper_large_v2": "openai/whisper-large-v2",
 }
 
 
