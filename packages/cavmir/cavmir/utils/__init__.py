@@ -26,13 +26,17 @@ TRAININGS_PREFIX = os.environ["TRAININGS_PREFIX"]
 
 
 def create_embedding_path(song_id: str, embedding_prefix: str, encoder_id: str) -> str:
-    return os.path.join(embedding_prefix, encoder_id, f"{song_id}.{encoder_id}.npy")
+    if embedding_prefix.endswith("/"):
+        embedding_prefix = embedding_prefix[:-1]
+    return f"{embedding_prefix}/{encoder_id}/{song_id}.{encoder_id}.npy"
+    #return os.path.join(embedding_prefix, encoder_id, f"{song_id}.{encoder_id}.npy")
 
 
 def load_embedding(
     song_id: str, embedding_prefix: str, encoder_id: str, fs: AbstractFileSystem
 ) -> np.ndarray:
     embedding_path = create_embedding_path(song_id, embedding_prefix, encoder_id)
+    #print(embedding_path)
     embedding = np.load(io.BytesIO(fs.cat(embedding_path)))[0]
 
     return embedding
@@ -381,4 +385,5 @@ def get_cav_vectors(
         f"cav_{train_type}_{project_name}.npy",
     )
     cav_vector = np.load(cav_vector_dir)
+    #print(f'cav_vector shape: {cav_vector.shape}')
     return cav_vector
