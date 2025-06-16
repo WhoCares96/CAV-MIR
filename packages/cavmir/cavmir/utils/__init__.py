@@ -15,9 +15,7 @@ from fsspec import AbstractFileSystem
 from sklearn.linear_model import LogisticRegression
 from torch.utils.data import DataLoader
 
-from cavmir.training.dataset import (
-    TrainingSample,
-)
+from cavmir.training import TrainingSample
 from cavmir.training.evaluate import evaluate_cav_model
 from cavmir.training.fit import fit_cav_model
 from cavmir.training.network import CAVNetwork
