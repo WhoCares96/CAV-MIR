@@ -21,6 +21,7 @@ from cavmir.training.fit import fit_cav_model
 from cavmir.training.network import CAVNetwork
 
 TRAININGS_PREFIX = os.environ["TRAININGS_PREFIX"]
+CACHE_DIR = os.environ["CAVMIR_CACHE_DIR"]
 
 
 def create_embedding_path(song_id: str, embedding_prefix: str, encoder_id: str) -> str:
@@ -75,7 +76,7 @@ def cache_df(cache_dir: str):
     return decorator
 
 
-@cache_df(cache_dir="/tmp")
+@cache_df(cache_dir=CACHE_DIR)
 def load_df_and_embeddings(
     project_name: str,
     dataset_type: Literal["train", "test"],
