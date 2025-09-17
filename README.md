@@ -46,7 +46,7 @@ pip install [-e] packages/cavmir
 
 The dataset used for training the Concept Activation Vectors in this paper is "STraDa: A Singer Traits Dataset". The associated metadata files as well as explanations on how to access the audio files can be found on [Zenodo](https://zenodo.org/records/10057434).
 
-As described in the paper, in addition to the STraDa data, we manually annotated extra songs to even out underrepresented categories. The corresponding metadata can be found [here](./data/supplementary_dataset.txt)
+As described in the paper, in addition to the STraDa data, we manually annotated 251 songs to even out underrepresented categories. The corresponding metadata can be found [here](./data/supplementary_dataset.txt).
 
 After retrieval of the metadata files, please run the corresponding [create_datasets.ipynb](./data/create_datasets.ipynb) notebook to prepare genre-balanced datasets for later use.
 
@@ -56,7 +56,7 @@ In order to reproduce the paper results please do the following:
 
 #### 1. Prepare dataset
 
-Follow the instructions in the [Dataset](#dataset) section to retrieve the dataset metadata and the corresponding audio files. The provided notebooks expect data to be stored on AWS S3 but the package uses a fsspec abstraction, thus can be easily adatpted for other storage types. Make sure that all audio files are stored in a single location in the format `<deezer-id>.mp3`.
+Follow the instructions in the [Dataset](#dataset) section to retrieve the dataset metadata and the corresponding audio files. The provided notebooks expect data to be stored on AWS S3 but the package uses fsspec for file system abstraction, thus can be easily adatpted for other storage types. Make sure that all audio files are stored in a single location in the format `<deezer-id>.mp3`.
 
 #### 2. Provide .env file
 
