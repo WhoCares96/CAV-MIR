@@ -46,7 +46,7 @@ pip install [-e] packages/cavmir
 
 The dataset used for training the Concept Activation Vectors in this paper is "STraDa: A Singer Traits Dataset". The associated metadata files as well as explanations on how to access the audio files can be found on [Zenodo](https://zenodo.org/records/10057434).
 
-As described in the paper, in addition to the STraDa data, we manually annotated extra songs to even out underrepresented categories. The corresponding metadata can be found [here](./data/strada_extra.csv)
+As described in the paper, in addition to the STraDa data, we manually annotated extra songs to even out underrepresented categories. The corresponding metadata can be found [here](./data/supplementary_dataset.txt)
 
 After retrieval of the metadata files, please run the corresponding [create_datasets.ipynb](./data/create_datasets.ipynb) notebook to prepare genre-balanced datasets for later use.
 
