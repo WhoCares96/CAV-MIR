@@ -1,9 +1,9 @@
 # Beyond Genre: Diagnosing Bias in Music Embeddings Using Concept Activation Vectors - Official Implementation
 
-[![Paper](https://img.shields.io/badge/paper-ISMIR:<id>-024291)](paper_url)
+[![Paper](https://img.shields.io/badge/paper-ISMIR:<id>-024291)](./paper_ismir_2025.pdf)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-This repository provides the code implementation for the ISMIR2025 publication [Beyond Genre: Diagnosing Bias in Music Embeddings Using Concept Activation Vectors](paper_url).
+This repository provides the code implementation for the ISMIR2025 publication [Beyond Genre: Diagnosing Bias in Music Embeddings Using Concept Activation Vectors](./paper_ismir_2025.pdf).
 
 ## Overview
 
@@ -46,9 +46,9 @@ pip install [-e] packages/cavmir
 
 The dataset used for training the Concept Activation Vectors in this paper is "STraDa: A Singer Traits Dataset". The associated metadata files as well as explanations on how to access the audio files can be found on [Zenodo](https://zenodo.org/records/10057434).
 
-After retrieval of the metadata files, please run the corresponding [create_datasets.ipynb](./data/create_datasets.ipynb) notebook to prepare genre-balanced datasets for later use.
+As described in the paper, in addition to the STraDa data, we manually annotated extra songs to even out underrepresented categories. The corresponding metadata can be found [here](./data/strada_extra.csv)
 
-[Explalations for extra data]
+After retrieval of the metadata files, please run the corresponding [create_datasets.ipynb](./data/create_datasets.ipynb) notebook to prepare genre-balanced datasets for later use.
 
 ## Usage
 
@@ -56,7 +56,7 @@ In order to reproduce the paper results please do the following:
 
 #### 1. Prepare dataset
 
-Follow the instructions in the [Dataset](#dataset) section to retrieve the dataset metadata and the corresponding audio files. The provided notebooks expect data to be stored on AWS S3 but can be easily adatpted for other storage types. Make sure that all audio files are stored in a single location in the format `<deezer-id>.mp3`.
+Follow the instructions in the [Dataset](#dataset) section to retrieve the dataset metadata and the corresponding audio files. The provided notebooks expect data to be stored on AWS S3 but the package uses a fsspec abstraction, thus can be easily adatpted for other storage types. Make sure that all audio files are stored in a single location in the format `<deezer-id>.mp3`.
 
 #### 2. Provide .env file
 
@@ -82,10 +82,10 @@ Open the [evaluate_tcav.ipynb Notebook](./evaluation/evaluate_tcav.ipynb) and ru
 
 ```text
 @inproceedings{gebhardt2025cav,
-  title   = {Beyond Genre: Diagnosing Bias in Music Embeddings Using Concept Activation Vectors},
-  author  = {Roman B. Gebhardt and Arne Kuhle and Eylül Bektur},
+  title     = {Beyond Genre: Diagnosing Bias in Music Embeddings Using Concept Activation Vectors},
+  author    = {Roman B. Gebhardt and Arne Kuhle and Eylül Bektur},
   booktitle = {Proceedings of the 26th International Society for Music Information Retrieval Conference (ISMIR)},
-  year    = {2025}
+  year      = {2025}
 }
 ```
 
