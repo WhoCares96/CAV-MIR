@@ -1,14 +1,15 @@
 import pandas as pd
 
+
 # Constructs a balanced training dataset across a given 'train_concept'
 # (e.g., gender) while controlling for a second 'independent_concept' (e.g., genre) to avoid confounding.
-def get_train_dataset(song_info, train_concept, independent_concept, max_test_size=100):
+def get_train_dataset(metadata, train_concept, independent_concept, max_test_size=100):
     df_train = {}
     for train_class in train_concept[1]:  # e.g., 'female', 'male'
         df_train[train_class] = []
         for independent_class in independent_concept[1]:  # e.g., genres
             # Filter by independent attribute (e.g., genre = Rock)
-            df_sub = song_info[song_info[independent_concept[0]] == independent_class]
+            df_sub = metadata[metadata[independent_concept[0]] == independent_class]
             df_sub_positive = df_sub[df_sub[train_concept[0]] == train_class]
             df_sub_negative = df_sub[~(df_sub[train_concept[0]] == train_class)]
 
@@ -28,15 +29,19 @@ def get_train_dataset(song_info, train_concept, independent_concept, max_test_si
 
 
 # Constructs a balanced test set with no overlap with the training data.
-def get_test_dataset(song_info, train_dataset, train_concept, independent_concept):
+def get_test_dataset(metadata, train_dataset, train_concept, independent_concept):
     df_test = {}
     for train_class in train_concept[1]:
         df_test[train_class] = []
         # Exclude training samples
-        df_not_train = song_info[~song_info.song_id.isin(train_dataset[train_class].song_id)]
+        df_not_train = metadata[
+            ~metadata.song_id.isin(train_dataset[train_class].song_id)
+        ]
 
         for independent_class in independent_concept[1]:
-            df_sub = df_not_train[df_not_train[independent_concept[0]] == independent_class]
+            df_sub = df_not_train[
+                df_not_train[independent_concept[0]] == independent_class
+            ]
             df_sub_positive = df_sub[df_sub[train_concept[0]] == train_class]
             df_sub_negative = df_sub[~(df_sub[train_concept[0]] == train_class)]
 
@@ -55,19 +60,19 @@ def get_test_dataset(song_info, train_dataset, train_concept, independent_concep
 
 
 # High-level wrapper for generating training and test sets, stratified by genre.
-def get_genre_balanced_datasets(song_info, train_concept):
+def get_genre_balanced_datasets(metadata, train_concept):
     # Drop missing labels for the training concept
-    song_info_without_nan = song_info[song_info[train_concept[0]].notnull()]
-    independent_concept = ("genre", list(song_info.genre.unique()))
+    song_info_without_nan = metadata[metadata[train_concept[0]].notnull()]
+    independent_concept = ("genre", list(metadata.genre.unique()))
 
     train_dataset = get_train_dataset(
-        song_info=song_info_without_nan,
+        metadata=song_info_without_nan,
         train_concept=train_concept,
         independent_concept=independent_concept,
     )
 
     test_dataset = get_test_dataset(
-        song_info=song_info_without_nan,
+        metadata=song_info_without_nan,
         train_dataset=train_dataset,
         train_concept=train_concept,
         independent_concept=independent_concept,
@@ -78,22 +83,11 @@ def get_genre_balanced_datasets(song_info, train_concept):
 
 def preprocess_metadata(song_info_path, song_artist_path, artist_info_path):
     """Utility function to load and merge raw metadata CSVs."""
-    song_info = (
+    metadata = (
         pd.read_csv(song_info_path)
         .merge(pd.read_csv(song_artist_path))
         .merge(pd.read_csv(artist_info_path))
     )
-    song_info = song_info.drop_duplicates(keep="first").reset_index(drop=True)
+    metadata = metadata.drop_duplicates(keep="first").reset_index(drop=True)
 
-    # Estimate age at release (not used in publication)
-    song_info["singer_age"] = song_info.apply(
-        lambda x: int(x.release_date.split("-")[0]) - x.birth_year
-        if len(str(x.birth_year)) == 4 else None,
-        axis=1,
-    )
-
-    song_info["singer_age_decade"] = song_info["singer_age"].apply(
-        lambda x: int(x / 10) * 10 if pd.notnull(x) else None
-    )
-
-    return song_info
+    return metadata
