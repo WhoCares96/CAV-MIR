@@ -6,26 +6,23 @@ build-backend = "setuptools.build_meta"
 name = "cavmir"
 version = "0.1.0"
 description = "Concept Activation Vectors in Music Information Retrieval."
-readme = "README.md"
 authors = [
-    { name = "Eylül Bektur", email = "example@mail.com" },
-    { name = "Roman Gebhardt", email = "example@mail.com" },
-    { name = "Arne Kuhle", email = "arne@cyanite.ai" }
+    { name = "Eylül Bektur", email = "cavmir@cyanite.ai" },
+    { name = "Roman Gebhardt", email = "cavmir@cyanite.ai" },
+    { name = "Arne Kuhle", email = "cavmir@cyanite.ai" }
 ]
 license = { file = "LICENSE" }
 dependencies = [
     "numpy==2.1.3",
     "transformers==4.47.1",
-    "torch",
-    "torchaudio",
-    "nnAudio",
-    "soundfile",
-    "librosa",
-    "webdataset",
-    "matplotlib",
-    "seaborn",
-    "accelerate",
-    "muq"
+    "torch==2.6.0",
+    "torchaudio==2.6.0",
+    "librosa==0.10.2.post1",
+    "soundfile==0.13.1",
+    "matplotlib==3.10.1",
+    "seaborn==0.13.2",
+    "muq==0.1.0",
+    "ipython==9.5.0",
 ]
 requires-python = ">=3.9"
 
